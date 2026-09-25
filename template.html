@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 新聞看板</title>
+<style>
+:root {
+  --bg: #f6f5f1; --surface: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e3e1da;
+  --accent: #b4461e; --accent-soft: #f6e4dc; --chip: #efede6; --chip-on: #1d1d1b; --chip-on-ink: #fff;
+  --hot: #b4461e;
+  --c-OpenAI: #0f7b62; --c-Anthropic: #b4561e; --c-Google: #2d63c8; --c-Meta: #5b4bc4;
+  --c-Microsoft: #00739e; --c-NVIDIA: #5f8a00; --c-xAI: #555;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161614; --surface: #1f1f1c; --ink: #ecebe6; --muted: #a09e96; --line: #33322e;
+    --accent: #f08a5d; --accent-soft: #3a261d; --chip: #2a2a26; --chip-on: #ecebe6; --chip-on-ink: #161614;
+    --hot: #f08a5d;
+    --c-OpenAI: #4fd1a8; --c-Anthropic: #f0a070; --c-Google: #82a8f0; --c-Meta: #a99cf0;
+    --c-Microsoft: #5cc3e8; --c-NVIDIA: #a8d24a; --c-xAI: #bbb;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.6 "Segoe UI", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+}
+a { color: inherit; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+header {
+  position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+}
+.top { display: flex; align-items: center; gap: 12px; padding: 14px 0; flex-wrap: wrap; }
+h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+.meta { color: var(--muted); font-size: 13px; }
+.spacer { flex: 1; }
+button {
+  font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink); border-radius: 8px; padding: 6px 12px;
+}
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button:disabled { opacity: .6; cursor: progress; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 6px 10px; background: var(--surface); }
+.seg button.on { background: var(--chip-on); color: var(--chip-on-ink); }
+.controls { padding: 12px 0 4px; display: grid; gap: 8px; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.row .lbl { color: var(--muted); font-size: 13px; width: 40px; flex-shrink: 0; }
+.chip {
+  border: 0; background: var(--chip); border-radius: 999px; padding: 3px 11px; font-size: 13px;
+}
+.chip.on { background: var(--chip-on); color: var(--chip-on-ink); }
+input[type=search] {
+  font: inherit; width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink);
+}
+.notice { margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--accent-soft); font-size: 14px; }
+.notice:empty { display: none; }
+.stats { color: var(--muted); font-size: 13px; margin: 14px 0 8px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 10px;
+}
+.card.hot { border-left: 4px solid var(--hot); }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
+.tag { font-size: 12px; font-weight: 600; padding: 0 8px; border-radius: 4px; border: 1px solid currentColor; }
+.heat { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--hot); white-space: nowrap; }
+.card h2 { font-size: 17px; line-height: 1.45; margin: 2px 0; }
+.card h2 a { text-decoration: none; }
+.card h2 a:hover { text-decoration: underline; }
+.orig { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
+.sum { margin: 6px 0; font-size: 14px; color: color-mix(in srgb, var(--ink) 82%, var(--muted)); }
+.src { font-size: 13px; color: var(--muted); }
+.src b { color: var(--ink); font-weight: 600; }
+.kind { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--chip); margin-left: 4px; }
+details { margin-top: 8px; font-size: 14px; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details ul { margin: 6px 0 0; padding-left: 18px; }
+details li { margin: 4px 0; }
+.empty { text-align: center; color: var(--muted); padding: 60px 0; }
+footer { color: var(--muted); font-size: 12px; padding: 24px 0 40px; }
+footer table { border-collapse: collapse; margin-top: 6px; }
+footer td { padding: 2px 12px 2px 0; }
+.bad { color: var(--accent); }
+@media (max-width: 560px) {
+  .row .lbl { width: 100%; }
+  h1 { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>AI 新聞看板</h1>
+        <div class="meta" id="meta"></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="seg" id="lang">
+        <button data-v="zh">中文</button><button data-v="en">原文</button>
+      </div>
+      <button class="primary" id="refresh">↻ 立即更新</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="notice" id="notice"></div>
+  <div class="controls">
+    <input type="search" id="q" placeholder="搜尋標題或摘要（中英文皆可）">
+    <div class="row" id="f-company"><span class="lbl">公司</span></div>
+    <div class="row" id="f-kind"><span class="lbl">來源</span></div>
+    <div class="row" id="f-range"><span class="lbl">時間</span></div>
+    <div class="row" id="f-sort"><span class="lbl">排序</span></div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div id="list"></div>
+  <footer id="foot"></footer>
+</main>
+<script>
+const DATA = /*__DATA__*/null;
+const CFG = /*__CFG__*/{};
+const KIND = { official: "官方", wire: "國際財經", tech: "科技媒體" };
+// 本機伺服器才能直接更新；雲端版改成連到 GitHub Actions 手動執行頁
+const LIVE = ["127.0.0.1", "localhost"].includes(location.hostname);
+
+function load(k, d) { try { return localStorage.getItem("ainews." + k) || d; } catch (e) { return d; } }
+function save(k, v) { try { localStorage.setItem("ainews." + k, v); } catch (e) {} }
+
+const state = {
+  lang: load("lang", "zh"), company: load("company", "all"), kind: load("kind", "all"),
+  range: load("range", "7"), sort: load("sort", "hot"), q: ""
+};
+
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") n.className = v; else if (k === "style") n.style.cssText = v; else n.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null && c !== false) n.append(c);
+  return n;
+}
+const safe = u => /^https?:\/\//i.test(u) ? u : "#";
+function ago(iso) {
+  const m = (Date.now() - new Date(iso)) / 60000;
+  if (m < 60) return Math.max(1, Math.round(m)) + " 分鐘前";
+  if (m < 1440) return Math.round(m / 60) + " 小時前";
+  return Math.round(m / 1440) + " 天前";
+}
+const fmt = iso => new Date(iso).toLocaleString("zh-TW", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const T = it => state.lang === "zh" && it.title_zh ? it.title_zh : it.title;
+const S = it => state.lang === "zh" && it.summary_zh ? it.summary_zh : it.summary;
+
+function chips(id, key, opts) {
+  const row = document.getElementById(id);
+  row.querySelectorAll("button").forEach(b => b.remove());
+  for (const [v, label] of opts) {
+    const b = el("button", { class: "chip" + (state[key] === v ? " on" : "") }, label);
+    b.onclick = () => { state[key] = v; save(key, v); drawControls(); draw(); };
+    row.append(b);
+  }
+}
+function drawControls() {
+  chips("f-company", "company", [["all", "全部"], ...CFG.companies.map(c => [c, c])]);
+  chips("f-kind", "kind", [["all", "全部"], ["official", "官方發布"], ["wire", "國際財經媒體"], ["tech", "科技媒體"]]);
+  chips("f-range", "range", [["1", "24 小時"], ["3", "3 天"], ["7", "7 天"]]);
+  chips("f-sort", "sort", [["hot", "熱門（多家報導優先）"], ["new", "最新"]]);
+  document.querySelectorAll("#lang button").forEach(b => b.classList.toggle("on", b.dataset.v === state.lang));
+}
+
+function match(c) {
+  if (state.company !== "all" && !c.companies.includes(state.company)) return false;
+  if (state.kind !== "all" && !c.items.some(i => i.kind === state.kind)) return false;
+  if (Date.now() - new Date(c.date) > +state.range * 86400000) return false;
+  if (state.q) {
+    const q = state.q.toLowerCase();
+    return c.items.some(i => [i.title, i.title_zh, i.summary, i.summary_zh].some(s => s && s.toLowerCase().includes(q)));
+  }
+  return true;
+}
+
+function card(c) {
+  const [lead, ...rest] = c.items;
+  const tags = el("div", { class: "tags" },
+    ...c.companies.map(n => el("span", { class: "tag", style: `color:var(--c-${n})` }, n)),
+    c.n_sources > 1 ? el("span", { class: "heat" }, `🔥 ${c.n_sources} 家報導`) : null);
+  const title = el("h2", {}, el("a", { href: safe(lead.link), target: "_blank", rel: "noopener noreferrer" }, T(lead)));
+  const orig = state.lang === "zh" && lead.title_zh ? el("p", { class: "orig" }, lead.title) : null;
+  const sum = S(lead) ? el("p", { class: "sum" }, S(lead)) : null;
+  const src = el("div", { class: "src" }, el("b", {}, lead.source), el("span", { class: "kind" }, KIND[lead.kind]),
+    ` · ${ago(lead.date)}（${fmt(lead.date)}）`);
+  let more = null;
+  if (rest.length) {
+    more = el("details", {}, el("summary", {}, `其他 ${rest.length} 則相關報導`),
+      el("ul", {}, ...rest.map(i => el("li", {},
+        el("b", {}, i.source), "：",
+        el("a", { href: safe(i.link), target: "_blank", rel: "noopener noreferrer" }, T(i)),
+        el("span", { class: "src" }, ` · ${ago(i.date)}`)))));
+  }
+  return el("article", { class: "card" + (c.n_sources > 1 ? " hot" : "") }, tags, title, orig, sum, src, more);
+}
+
+function draw() {
+  const list = document.getElementById("list");
+  list.replaceChildren();
+  if (!DATA) {
+    list.append(el("div", { class: "empty" }, LIVE ? "第一次使用，正在抓取新聞…（約 1 分鐘）" : "尚無資料，請用桌面捷徑開啟並按「立即更新」。"));
+    return;
+  }
+  let cs = DATA.clusters.filter(match);
+  if (state.sort === "hot") cs = [...cs].sort((a, b) => b.n_sources - a.n_sources || new Date(b.date) - new Date(a.date));
+  const hot = cs.filter(c => c.n_sources > 1).length;
+  document.getElementById("stats").textContent = `共 ${cs.length} 個事件，其中 ${hot} 個有多家媒體報導`;
+  if (!cs.length) list.append(el("div", { class: "empty" }, "沒有符合條件的新聞"));
+  const frag = document.createDocumentFragment();
+  cs.forEach(c => frag.append(card(c)));
+  list.append(frag);
+}
+
+function drawMeta() {
+  const meta = document.getElementById("meta");
+  const foot = document.getElementById("foot");
+  if (!DATA) { meta.textContent = "尚未更新"; return; }
+  meta.textContent = `國外權威媒體 · 近 ${DATA.days} 天 · 最後更新 ${fmt(DATA.generated)}（${ago(DATA.generated)}）`;
+  const bad = DATA.feeds.filter(f => f.error);
+  foot.replaceChildren(
+    el("div", {}, `來源狀態：${DATA.feeds.length - bad.length}/${DATA.feeds.length} 正常。翻譯使用 Google 翻譯免費服務，不消耗 AI token。`),
+    el("table", {}, ...DATA.feeds.map(f => el("tr", {},
+      el("td", {}, f.name), el("td", {}, KIND[f.kind]),
+      el("td", { class: f.error ? "bad" : "" }, f.error ? "抓取失敗" : `${f.count} 則`)))));
+}
+
+async function refresh() {
+  const btn = document.getElementById("refresh");
+  const notice = document.getElementById("notice");
+  if (!LIVE && CFG.runUrl) {
+    window.open(CFG.runUrl, "_blank", "noopener");
+    notice.textContent = "已開啟 GitHub：請按右側「Run workflow」→ 綠色「Run workflow」，約 1–2 分鐘後重新整理本頁即可看到新資料。";
+    return;
+  }
+  if (!LIVE) {
+    notice.textContent = "這是離線檔案，無法更新。請用桌面上的「AI 新聞看板」捷徑開啟，就能使用「立即更新」。";
+    return;
+  }
+  btn.disabled = true; btn.textContent = "更新中…";
+  notice.textContent = "正在抓取各家媒體並翻譯，通常 10–60 秒。";
+  try {
+    const r = await fetch("/refresh", { method: "POST", headers: { "X-AI-News": "1" } });
+    if (!r.ok) throw new Error(r.status);
+    location.reload();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "↻ 立即更新";
+    notice.textContent = "更新失敗：看板程式可能已關閉，請重新點桌面上的「AI 新聞看板」捷徑。";
+  }
+}
+
+document.getElementById("refresh").onclick = refresh;
+document.querySelectorAll("#lang button").forEach(b => b.onclick = () => {
+  state.lang = b.dataset.v; save("lang", state.lang); drawControls(); draw();
+});
+document.getElementById("q").oninput = e => { state.q = e.target.value.trim(); draw(); };
+drawControls(); drawMeta(); draw();
+if (LIVE && (!DATA || Date.now() - new Date(DATA.generated) > CFG.staleHours * 3600000)) refresh();
+</script>
+</body>
+</html>

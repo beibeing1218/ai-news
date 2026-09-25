@@ -1,0 +1,6 @@
+ai-news.html
+site/
+data/news.json
+data/log.txt
+*.tmp
+__pycache__/

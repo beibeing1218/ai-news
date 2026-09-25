@@ -1,0 +1,55 @@
+name: 更新 AI 新聞看板
+
+on:
+  schedule:
+    - cron: "0 0 * * *"      # UTC 00:00 = 台灣時間每天早上 8 點（GitHub 排程可能延遲數分鐘）
+  workflow_dispatch:          # 可在 GitHub 網頁上手動按「Run workflow」
+  push:
+    branches: [main]
+    paths: ["ai_news.py", "template.html", ".github/workflows/update.yml"]
+
+permissions:
+  contents: write             # 存回翻譯快取
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 抓新聞、翻譯、產生網頁
+        env:
+          AI_NEWS_RUN_URL: https://github.com/${{ github.repository }}/actions/workflows/update.yml
+        run: |
+          python ai_news.py build
+          mkdir -p site
+          cp ai-news.html site/index.html
+
+      # 把翻譯快取存回 repo：下次只翻新標題；每日提交也讓排程不會因 60 天無活動被停用
+      - name: 儲存翻譯快取
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/translations.json
+          git diff --cached --quiet || git commit -m "更新翻譯快取"
+          git pull --rebase && git push
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
