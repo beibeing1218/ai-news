@@ -31,7 +31,8 @@ DATA_DIR = BASE / "data"
 TEMPLATE = BASE / "template.html"
 OUT_HTML = BASE / "ai-news.html"      # 可直接雙擊開啟的靜態版
 NEWS_JSON = DATA_DIR / "news.json"
-CACHE = DATA_DIR / "translations.json"
+# 雲端（GitHub Actions）的快取會存回 repo；本機用另一個不進版控的檔，兩邊才不會互相衝突
+CACHE = DATA_DIR / ("translations.json" if os.environ.get("GITHUB_ACTIONS") else "translations.local.json")
 LOG = DATA_DIR / "log.txt"
 
 PORT = 8765

@@ -4,3 +4,4 @@ data/news.json
 data/log.txt
 *.tmp
 __pycache__/
+data/translations.local.json
