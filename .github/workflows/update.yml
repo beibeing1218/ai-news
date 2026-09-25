@@ -39,13 +39,17 @@ jobs:
           cp ai-news.html site/index.html
 
       # 把翻譯快取存回 repo：下次只翻新標題；每日提交也讓排程不會因 60 天無活動被停用
+      # 快取只是加速用，存不回去也照常發布網頁
       - name: 儲存翻譯快取
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch -q origin main
+          git reset -q origin/main          # 接在最新的 main 之後，只提交快取檔，避免同時執行時衝突
           git add data/translations.json
-          git diff --cached --quiet || git commit -m "更新翻譯快取"
-          git pull --rebase && git push
+          git diff --cached --quiet || git commit -q -m "更新翻譯快取"
+          git push origin HEAD:main
 
       - uses: actions/upload-pages-artifact@v3
         with:
