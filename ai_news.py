@@ -215,6 +215,18 @@ def similar(a, b):
     return (len(shared) >= 3 and j >= 0.25) or j >= 0.5
 
 
+def primary_company(items):
+    """一則事件的主角公司：官方來源直接算自家；否則看標題裡最先出現的公司。"""
+    lead = items[0]
+    if lead["source"] in OFFICIAL_COMPANY:
+        return OFFICIAL_COMPANY[lead["source"]]
+    for text in [m["title"] for m in items] + [m["summary"] for m in items]:
+        hits = [(m.start(), c) for c, rx in COMPANY_RE.items() if (m := rx.search(text))]
+        if hits:
+            return min(hits)[1]
+    return None
+
+
 def cluster(items):
     items = sorted(items, key=lambda x: x["date"], reverse=True)
     clusters = []
@@ -236,6 +248,7 @@ def cluster(items):
         out.append({
             "items": c,
             "companies": sorted(set().union(*(m["companies"] for m in c))),
+            "primary": primary_company(c),
             "n_sources": len({m["source"] for m in c}),
             "date": max(m["date"] for m in c),
         })
@@ -321,6 +334,7 @@ def build():
             "feeds": status,
             "clusters": [{
                 "companies": c["companies"],
+                "primary": c["primary"],
                 "n_sources": c["n_sources"],
                 "date": c["date"].isoformat(),
                 "items": [{

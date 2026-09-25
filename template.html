@@ -16,8 +16,9 @@
   --glass: rgba(22, 23, 27, .62); --surface: rgba(255, 255, 255, .035);
   --red: #ff4d4d; --red-soft: rgba(255, 77, 77, .14);
   --hot: #ff6363;
-  --c-OpenAI: #3ee0b0; --c-Anthropic: #ff9a62; --c-Google: #6fa0ff; --c-Meta: #a592ff;
-  --c-Microsoft: #45c8f5; --c-NVIDIA: #9be24a; --c-xAI: #c9c9d1;
+  /* 各公司識別色：彼此色相拉開，卡片、標籤、篩選鈕共用 */
+  --c-OpenAI: #3ee0b0; --c-Anthropic: #ff8a5c; --c-Google: #5b9dff; --c-Meta: #b18cff;
+  --c-Microsoft: #ffcc40; --c-NVIDIA: #8ee03a; --c-xAI: #e4e4e7;
   --sans: "Inter", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
@@ -122,6 +123,7 @@ kbd {
 .row .lbl { color: var(--dim); font: 12px var(--mono); text-transform: uppercase; width: 44px; flex-shrink: 0; }
 .chip { border-radius: 999px; padding: 3px 12px; font-size: 13px; color: var(--muted); }
 .chip.on { background: #f4f4f5; border-color: #f4f4f5; color: #0b0b0d; font-weight: 600; }
+.chip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; box-shadow: 0 0 6px currentColor; }
 
 .notice {
   margin: 16px 0 0; padding: 10px 14px; border-radius: 12px; font-size: 14px;
@@ -137,15 +139,30 @@ kbd {
   border: 1px solid var(--line); transition: border-color .2s, transform .2s, box-shadow .2s;
 }
 .card:hover { border-color: var(--line-strong); transform: translateY(-1px); box-shadow: 0 16px 40px -20px rgba(0, 0, 0, .9); }
-.card.hot {
-  border-color: rgba(255, 90, 90, .32);
-  box-shadow: 0 0 0 1px rgba(255, 70, 70, .06), 0 0 36px -14px rgba(255, 60, 60, .55);
+/* 有主角公司的卡片：整張帶公司色（左側發光色條、左上角色光、邊框） */
+.card.co {
+  padding-left: 22px;
+  background:
+    radial-gradient(420px 160px at 0% 0%, color-mix(in srgb, var(--cc) 16%, transparent), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .012));
+  border-color: color-mix(in srgb, var(--cc) 26%, transparent);
 }
-.card.hot::before {
-  content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 110, 110, .9), transparent);
+.card.co::before {
+  content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--cc); box-shadow: 0 0 14px var(--cc);
 }
-.tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+.card.co:hover { border-color: color-mix(in srgb, var(--cc) 50%, transparent); }
+/* 多家報導：公司色的光暈更強 */
+.card.co.hot { box-shadow: 0 0 40px -16px var(--cc); border-color: color-mix(in srgb, var(--cc) 40%, transparent); }
+.card.hot:not(.co) { border-color: rgba(255, 90, 90, .3); box-shadow: 0 0 36px -16px rgba(255, 60, 60, .5); }
+.cohead { display: flex; align-items: center; gap: 10px; margin-right: 4px; }
+.mono {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; display: grid; place-items: center;
+  font: 700 12px/1 var(--mono); color: #0b0b0d; background: var(--cc);
+  box-shadow: 0 0 16px -3px var(--cc), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+.coname { font-weight: 700; font-size: 14px; color: var(--cc); letter-spacing: .01em; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
 .tag {
   display: inline-flex; align-items: center; gap: 6px; font: 500 11.5px/1.9 var(--mono);
   padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent);
@@ -223,6 +240,7 @@ footer td { padding: 2px 14px 2px 0; }
 const DATA = /*__DATA__*/null;
 const CFG = /*__CFG__*/{};
 const KIND = { official: "官方", wire: "國際財經", tech: "科技媒體" };
+const MONO = { OpenAI: "OA", Anthropic: "AN", Google: "G", Meta: "M", Microsoft: "MS", NVIDIA: "NV", xAI: "xAI" };
 // 本機伺服器才能直接更新；雲端版改成連到 GitHub Actions 手動執行頁
 const LIVE = ["127.0.0.1", "localhost"].includes(location.hostname);
 
@@ -257,7 +275,8 @@ function chips(id, key, opts) {
   const row = document.getElementById(id);
   row.querySelectorAll("button").forEach(b => b.remove());
   for (const [v, label] of opts) {
-    const b = el("button", { class: "chip" + (state[key] === v ? " on" : "") }, label);
+    const dot = key === "company" && v !== "all" ? el("span", { class: "dot", style: `background:var(--c-${v});color:var(--c-${v})` }) : null;
+    const b = el("button", { class: "chip" + (state[key] === v ? " on" : "") }, dot, label);
     b.onclick = () => { state[key] = v; save(key, v); drawControls(); draw(); };
     row.append(b);
   }
@@ -283,8 +302,12 @@ function match(c) {
 
 function card(c) {
   const [lead, ...rest] = c.items;
+  // 主角公司：大色塊縮寫＋公司名；其他提到的公司縮成小標籤
+  const primary = c.primary || null;
+  const others = c.companies.filter(n => n !== primary);
   const tags = el("div", { class: "tags" },
-    ...c.companies.map(n => el("span", { class: "tag", style: `color:var(--c-${n})` }, n)),
+    primary ? el("div", { class: "cohead" }, el("span", { class: "mono" }, MONO[primary] || primary[0]), el("span", { class: "coname" }, primary)) : null,
+    ...others.map(n => el("span", { class: "tag", style: `color:var(--c-${n})` }, n)),
     c.n_sources > 1 ? el("span", { class: "heat" }, `🔥 ${c.n_sources} 家報導`) : null);
   const title = el("h2", {}, el("a", { href: safe(lead.link), target: "_blank", rel: "noopener noreferrer" }, T(lead)));
   const orig = state.lang === "zh" && lead.title_zh ? el("p", { class: "orig" }, lead.title) : null;
@@ -299,7 +322,8 @@ function card(c) {
         el("a", { href: safe(i.link), target: "_blank", rel: "noopener noreferrer" }, T(i)),
         el("span", { class: "src" }, ` · ${ago(i.date)}`)))));
   }
-  return el("article", { class: "card" + (c.n_sources > 1 ? " hot" : "") }, tags, title, orig, sum, src, more);
+  const cls = "card" + (primary ? " co" : "") + (c.n_sources > 1 ? " hot" : "");
+  return el("article", { class: cls, style: primary ? `--cc:var(--c-${primary})` : "" }, tags, title, orig, sum, src, more);
 }
 
 function draw() {
