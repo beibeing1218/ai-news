@@ -241,7 +241,7 @@ const DATA = /*__DATA__*/null;
 const CFG = /*__CFG__*/{};
 const KIND = { official: "官方", wire: "國際財經", tech: "科技媒體" };
 const MONO = { OpenAI: "OA", Anthropic: "AN", Google: "G", Meta: "M", Microsoft: "MS", NVIDIA: "NV", xAI: "xAI" };
-// 本機伺服器才能直接更新；雲端版改成連到 GitHub Actions 手動執行頁
+// 本機伺服器才能直接更新；雲端版改成檢查有沒有更新過的版本
 const LIVE = ["127.0.0.1", "localhost"].includes(location.hostname);
 
 function load(k, d) { try { return localStorage.getItem("ainews." + k) || d; } catch (e) { return d; } }
@@ -359,9 +359,19 @@ function drawMeta() {
 async function refresh() {
   const btn = document.getElementById("refresh");
   const notice = document.getElementById("notice");
-  if (!LIVE && CFG.runUrl) {
-    window.open(CFG.runUrl, "_blank", "noopener");
-    notice.textContent = "已開啟 GitHub：請按右側「Run workflow」→ 綠色「Run workflow」，約 1–2 分鐘後重新整理本頁即可看到新資料。";
+  if (!LIVE && CFG.cloud) {
+    // 雲端版是靜態網頁，由 GitHub 每天早上 8 點自動更新；這裡檢查有沒有比畫面上更新的版本，有就載入
+    btn.disabled = true; btn.textContent = "檢查中…";
+    try {
+      const page = await (await fetch(location.pathname + "?t=" + Date.now(), { cache: "no-store" })).text();
+      const m = page.match(/"generated":\s*"([^"]+)"/);
+      if (m && DATA && new Date(m[1]) > new Date(DATA.generated)) { location.reload(); return; }
+      notice.textContent = "目前已經是最新資料" + (DATA ? `（${ago(DATA.generated)}更新）` : "") +
+        "。網站每天早上 8 點自動更新；想隨時更新，請用桌面上的「AI 新聞看板」捷徑開啟。";
+    } catch (e) {
+      notice.textContent = "檢查失敗，請確認網路連線後再試一次。";
+    }
+    btn.disabled = false; btn.textContent = "↻ 立即更新";
     return;
   }
   if (!LIVE) {

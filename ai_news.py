@@ -356,9 +356,9 @@ def build():
 def render(data):
     tpl = TEMPLATE.read_text(encoding="utf-8")
     js = json.dumps(data, ensure_ascii=False).replace("</", "<\\/") if data else "null"
-    # 雲端版（GitHub Actions）會設定 AI_NEWS_RUN_URL，讓「立即更新」連到手動執行頁
+    # 雲端版每天自動更新，網頁上的「立即更新」改成檢查有沒有更新過的版本
     cfg = json.dumps({"staleHours": STALE_HOURS, "companies": list(COMPANIES),
-                      "runUrl": os.environ.get("AI_NEWS_RUN_URL", "")})
+                      "cloud": bool(os.environ.get("GITHUB_ACTIONS"))})
     return tpl.replace("/*__DATA__*/null", js).replace("/*__CFG__*/{}", cfg)
 
 

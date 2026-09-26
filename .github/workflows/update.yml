@@ -31,8 +31,6 @@ jobs:
           python-version: "3.12"
 
       - name: 抓新聞、翻譯、產生網頁
-        env:
-          AI_NEWS_RUN_URL: https://github.com/${{ github.repository }}/actions/workflows/update.yml
         run: |
           python ai_news.py build
           mkdir -p site
